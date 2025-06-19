@@ -1,0 +1,125 @@
+[1mdiff --git a/untitled.m b/untitled.m[m
+[1mdeleted file mode 100644[m
+[1mindex 8dc57fa..0000000[m
+[1m--- a/untitled.m[m
+[1m+++ /dev/null[m
+[36m@@ -1,118 +0,0 @@[m
+[31m-%% 绝缘子憎水性等级分类 - 基于边缘密度特征[m
+[31m-clc; clear; close all;[m
+[31m-[m
+[31m-%% 1. 设置路径和参数[m
+[31m-datasetPath = fullfile('test'); % 数据集路径[m
+[31m-classes = {'HC1', 'HC2', 'HC3', 'HC4', 'HC5', 'HC6', 'HC7'}; % 7个类别[m
+[31m-numClasses = length(classes);[m
+[31m-[m
+[31m-% 边缘检测参数[m
+[31m-edgeMethod = 'canny'; % 使用Canny边缘检测[m
+[31m-edgeThreshold = 0.1; % 边缘检测阈值[m
+[31m-[m
+[31m-% 特征参数[m
+[31m-gridSize = 8; % 将图像划分为8x8的网格[m
+[31m-[m
+[31m-%% 2. 数据准备和特征提取[m
+[31m-disp('开始特征提取...');[m
+[31m-[m
+[31m-features = []; % 存储所有特征[m
+[31m-labels = []; % 存储所有标签[m
+[31m-[m
+[31m-for i = 1:numClasses[m
+[31m-    className = classes{i};[m
+[31m-    classPath = fullfile(datasetPath, className);[m
+[31m-    imageFiles = dir(fullfile(classPath, '*.jpg')); % 获取所有jpg文件[m
+[31m-    [m
+[31m-    for j = 1:length(imageFiles)[m
+[31m-        % 读取图像[m
+[31m-        imgPath = fullfile(classPath, imageFiles(j).name);[m
+[31m-        img = imread(imgPath);[m
+[31m-        [m
+[31m-        % 转换为灰度图像[m
+[31m-        if size(img, 3) == 3[m
+[31m-            grayImg = rgb2gray(img);[m
+[31m-        else[m
+[31m-            grayImg = img;[m
+[31m-        end[m
+[31m-        [m
+[31m-        % 边缘检测[m
+[31m-        edgeImg = edge(grayImg, edgeMethod, edgeThreshold);[m
+[31m-        [m
+[31m-        % 计算边缘密度特征[m
+[31m-        feature = computeEdgeDensity(edgeImg, gridSize);[m
+[31m-        [m
+[31m-        % 存储特征和标签[m
+[31m-        features = [features; feature];[m
+[31m-        labels = [labels; i]; % 使用数字表示类别[m
+[31m-        [m
+[31m-        % 显示进度[m
+[31m-        fprintf('处理: %s, 进度: %d/%d\n', className, j, length(imageFiles));[m
+[31m-    end[m
+[31m-end[m
+[31m-[m
+[31m-disp('特征提取完成!');[m
+[31m-[m
+[31m-%% 3. 数据标准化[m
+[31m-features = zscore(features); % Z-score标准化[m
+[31m-[m
+[31m-%% 4. 数据集划分[m
+[31m-rng(1); % 设置随机种子保证可重复性[m
+[31m-cv = cvpartition(labels, 'HoldOut', 0.3); % 70%训练，30%测试[m
+[31m-[m
+[31m-trainFeatures = features(cv.training,:);[m
+[31m-trainLabels = labels(cv.training);[m
+[31m-testFeatures = features(cv.test,:);[m
+[31m-testLabels = labels(cv.test);[m
+[31m-[m
+[31m-%% 5. 训练分类器[m
+[31m-disp('开始训练分类器...');[m
+[31m-[m
+[31m-% 使用支持向量机(SVM)作为分类器[m
+[31m-template = templateSVM('KernelFunction', 'linear', 'Standardize', true);[m
+[31m-model = fitcecoc(trainFeatures, trainLabels, 'Learners', template);[m
+[31m-[m
+[31m-disp('分类器训练完成!');[m
+[31m-[m
+[31m-%% 6. 模型评估[m
+[31m-predictedLabels = predict(model, testFeatures);[m
+[31m-[m
+[31m-% 计算准确率[m
+[31m-accuracy = sum(predictedLabels == testLabels) / numel(testLabels);[m
+[31m-fprintf('测试集准确率: %.2f%%\n', accuracy*100);[m
+[31m-[m
+[31m-% 混淆矩阵[m
+[31m-figure;[m
+[31m-confusionchart(testLabels, predictedLabels, 'RowSummary', 'row-normalized');[m
+[31m-title('混淆矩阵 (标准化行显示)');[m
+[31m-[m
+[31m-%% 7. 辅助函数 - 计算边缘密度特征[m
+[31m-function feature = computeEdgeDensity(edgeImg, gridSize)[m
+[31m-    [rows, cols] = size(edgeImg);[m
+[31m-    [m
+[31m-    % 计算每个网格的大小[m
+[31m-    gridHeight = floor(rows / gridSize);[m
+[31m-    gridWidth = floor(cols / gridSize);[m
+[31m-    [m
+[31m-    feature = [];[m
+[31m-    [m
+[31m-    % 遍历每个网格[m
+[31m-    for i = 1:gridSize[m
+[31m-        for j = 1:gridSize[m
+[31m-            % 计算当前网格的边界[m
+[31m-            rowStart = (i-1)*gridHeight + 1;[m
+[31m-            rowEnd = min(i*gridHeight, rows);[m
+[31m-            colStart = (j-1)*gridWidth + 1;[m
+[31m-            colEnd = min(j*gridWidth, cols);[m
+[31m-            [m
+[31m-            % 提取当前网格[m
+[31m-            grid = edgeImg(rowStart:rowEnd, colStart:colEnd);[m
+[31m-            [m
+[31m-            % 计算边缘密度(边缘像素比例)[m
+[31m-            density = sum(grid(:)) / numel(grid);[m
+[31m-            [m
+[31m-            % 添加到特征向量[m
+[31m-            feature = [feature, density];[m
+[31m-        end[m
+[31m-    end[m
+[31m-end[m
+\ No newline at end of file[m
